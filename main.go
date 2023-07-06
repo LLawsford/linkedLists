@@ -1,8 +1,8 @@
-// TODO: json encoding + decoding
 // TODO: json validators
 // TODO: database connection
 // TODO: dockerization
 // TODO: JWT basic validation
+// TODO: get config variables from env file (eg. port)
 // TODO: tests
 // TODO: ci/cd
 // TODO: SSL
@@ -38,7 +38,6 @@ func (apiServer *APIServer) Run() {
 
 func main() {
 	apiServer := APIServer{
-		//TODO: get variables from env file
 		port: ":3030",
 	}
 
