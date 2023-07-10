@@ -37,5 +37,6 @@ func (app *application) routes() *chi.Mux {
 		r.Put("/", app.dummyHandler)
 		r.Patch("/", app.dummyHandler)
 	})
+
 	return router
 }
