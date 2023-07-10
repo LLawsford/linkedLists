@@ -1,11 +1,19 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  db:
+  postgres:
     image: postgres
     restart: always
     environment:
       POSTGRES_PASSWORD: admin
+      POSTGRES_USER: postgres
+      POSTGRES_DB: linked_lists
+    ports:
+      - 5090:5432
+    networks:
+      - db
+    volumes:
+      - /data/postgres:/data/postgres
   api:
     build: .
     ports: 
@@ -14,4 +22,41 @@ services:
       - PORT=3030
       - DATABASE_URL=db
     depends_on:
+      - postgres
+    networks:
       - db
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - 5091:80 
+    volumes:
+      - /data/pgadmin:/root/.pgadmin
+    networks:
+      - db
+  migrate:
+    image: migrate/migrate:v4.15.2
+    profiles: ["tools"]
+    volumes:
+      - ./migrations:/migrations
+    entrypoint:
+      [
+        "migrate",
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://postgres:admin@postgres:5432/linked_lists?sslmode=disable",
+      ]
+    command: ["up"]
+    networks:
+      - db
+    depends_on:
+      - postgres
+    restart: on-failure
+
+networks:
+  db:
+    driver: bridge 
