@@ -21,10 +21,10 @@ func (app *application) routes() *chi.Mux {
 	// v1 item lists routes
 	router.Route("/api/v1/itemLists", func(r chi.Router) {
 		r.Get("/{itemListId}", app.showItemListHandler)
+		r.Put("/{itemListId}", app.updateItemListHandler)
+		r.Delete("/{itemListId}", app.deleteItemListHandler)
 		r.Post("/", app.createItemListHandler)
 		r.Get("/", app.dummyHandler)
-		r.Delete("/", app.dummyHandler)
-		r.Put("/", app.dummyHandler)
 		r.Patch("/", app.dummyHandler)
 	})
 

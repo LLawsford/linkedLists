@@ -1,6 +1,8 @@
 package data
 
 import (
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/LLawsford/linkedLists/internal/validator"
@@ -19,4 +21,94 @@ func ValidateItemList(v *validator.Validator, itemList *ItemList) {
 
 	v.Check(itemList.Description != "", "description", "must be provided")
 	v.Check(len(itemList.Description) <= 1500, "description", "must not be more than 1500 bytes long")
+}
+
+type ItemListModel struct {
+	DB *sql.DB
+}
+
+func (il ItemListModel) Insert(itemList *ItemList) error {
+	query := `
+		INSERT INTO item_lists (title, description)
+		VALUES ($1, $2)
+		RETURNING id, created_at
+	`
+	args := []any{itemList.Title, itemList.Description}
+
+	return il.DB.QueryRow(query, args...).Scan(&itemList.ID, &itemList.CreatedAt)
+}
+
+func (il ItemListModel) Get(id int64) (*ItemList, error) {
+	if id < 1 {
+		return nil, ErrRecordNotFound
+	}
+
+	query := `
+		SELECT id, created_at, title, description
+		FROM item_lists
+		WHERE id = $1
+	`
+
+	var itemList ItemList
+
+	err := il.DB.QueryRow(query, id).Scan(
+		&itemList.ID,
+		&itemList.CreatedAt,
+		&itemList.Title,
+		&itemList.Description,
+	)
+
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+
+	return &itemList, nil
+}
+
+func (il ItemListModel) Update(itemList *ItemList) error {
+	query := `
+		UPDATE item_lists
+		SET title = $1, description = $2
+		WHERE id = $3
+		RETURNING id
+	`
+
+	args := []any{
+		itemList.Title,
+		itemList.Description,
+		itemList.ID,
+	}
+
+	return il.DB.QueryRow(query, args...).Scan(&itemList.ID)
+}
+
+func (il ItemListModel) Delete(id int64) error {
+	if id < 1 {
+		return ErrRecordNotFound
+	}
+
+	query := `
+		DELETE FROM item_lists
+		WHERE id = $1
+	`
+	result, err := il.DB.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+
+	return nil
 }

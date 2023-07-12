@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/LLawsford/linkedLists/internal/data"
 	_ "github.com/lib/pq"
 )
 
@@ -27,6 +28,7 @@ const version = "1.0.0"
 
 type application struct {
 	config config
+	models data.Models
 }
 
 func main() {
@@ -35,7 +37,9 @@ func main() {
 	// TODO: use env file + os.Getenv
 	flag.IntVar(&cfg.port, "port", 3030, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment(development|staging|production)")
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://postgres:admin@postgres:5090/linked_lists", "PostgreSQL DSN")
+	// TODO: it will connect because postgres runs on db network as well as default network. Separate by environment
+	// TODO: enable SSL
+	flag.StringVar(&cfg.db.dsn, "db-dsn", "postgres://postgres:admin@localhost:5090/linked_lists?sslmode=disable", "PostgreSQL DSN")
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
@@ -48,7 +52,7 @@ func main() {
 
 	defer db.Close()
 
-	app := &application{config: cfg}
+	app := &application{config: cfg, models: data.NewModels(db)}
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.port),

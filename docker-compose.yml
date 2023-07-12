@@ -12,8 +12,9 @@ services:
       - 5090:5432
     networks:
       - db
+      - default
     volumes:
-      - /data/postgres:/data/postgres
+      - ./postgres-data:/var/lib/postgresql/data
   api:
     build: .
     ports: 
@@ -42,6 +43,7 @@ services:
     profiles: ["tools"]
     volumes:
       - ./migrations:/migrations
+    # TODO: beautify
     entrypoint:
       [
         "migrate",
