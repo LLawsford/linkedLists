@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/LLawsford/linkedLists/internal/validator"
+	"github.com/lib/pq"
 )
 
 type ItemList struct {
@@ -13,6 +14,7 @@ type ItemList struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
+	Items       []string  `json:"items"`
 	Version     int32     `json:"version"`
 }
 
@@ -30,13 +32,13 @@ type ItemListModel struct {
 
 func (il ItemListModel) Insert(itemList *ItemList) error {
 	query := `
-		INSERT INTO item_lists (title, description)
-		VALUES ($1, $2)
+		INSERT INTO item_lists (title, description, items)
+		VALUES ($1, $2, $3)
 		RETURNING id, created_at, version
 	`
-	args := []any{itemList.Title, itemList.Description}
+	args := []any{itemList.Title, itemList.Description, pq.Array(itemList.Items)}
 
-	return il.DB.QueryRow(query, args...).Scan(&itemList.ID, &itemList.CreatedAt)
+	return il.DB.QueryRow(query, args...).Scan(&itemList.ID, &itemList.CreatedAt, &itemList.Version)
 }
 
 func (il ItemListModel) Get(id int64) (*ItemList, error) {
@@ -45,7 +47,7 @@ func (il ItemListModel) Get(id int64) (*ItemList, error) {
 	}
 
 	query := `
-		SELECT id, created_at, title, description
+		SELECT id, created_at, title, description, items, version
 		FROM item_lists
 		WHERE id = $1
 	`
@@ -57,6 +59,8 @@ func (il ItemListModel) Get(id int64) (*ItemList, error) {
 		&itemList.CreatedAt,
 		&itemList.Title,
 		&itemList.Description,
+		pq.Array(&itemList.Items),
+		&itemList.Version,
 	)
 
 	if err != nil {
@@ -74,14 +78,15 @@ func (il ItemListModel) Get(id int64) (*ItemList, error) {
 func (il ItemListModel) Update(itemList *ItemList) error {
 	query := `
 		UPDATE item_lists
-		SET title = $1, description = $2, version = version + 1
-		WHERE id = $3 AND version = $6
+		SET title = $1, description = $2, items = $3, version = version + 1
+		WHERE id = $4 AND version = $5
 		RETURNING version
 	`
 
 	args := []any{
 		itemList.Title,
 		itemList.Description,
+		pq.Array(itemList.Items),
 		itemList.ID,
 		itemList.Version,
 	}
