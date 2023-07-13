@@ -3,5 +3,6 @@ CREATE TABLE IF NOT EXISTS item_lists (
     title VARCHAR NOT NULL,
     description VARCHAR NOT NULL,
     created_at DATE DEFAULT CURRENT_DATE,
+    items TEXT[] NOT NULL,
     version INTEGER NOT NULL DEFAULT 1
 );

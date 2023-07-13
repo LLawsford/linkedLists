@@ -4,7 +4,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -15,8 +14,9 @@ import (
 
 func (app *application) createItemListHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
+		Title       string   `json:"title"`
+		Description string   `json:"description"`
+		Items       []string `json:"items"`
 	}
 
 	err := app.readJSON(w, r, &input)
@@ -28,6 +28,7 @@ func (app *application) createItemListHandler(w http.ResponseWriter, r *http.Req
 	itemList := &data.ItemList{
 		Title:       input.Title,
 		Description: input.Description,
+		Items:       input.Items,
 	}
 
 	v := validator.New()
@@ -96,11 +97,11 @@ func (app *application) updateItemListHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	log.Printf("%+v\n", itemList)
-
 	var input struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
+		Title       string   `json:"title"`
+		Description string   `json:"description"`
+		Items       []string `json:"items"`
+		Version     int32    `json:"version"`
 	}
 
 	err = app.readJSON(w, r, &input)
@@ -112,6 +113,8 @@ func (app *application) updateItemListHandler(w http.ResponseWriter, r *http.Req
 
 	itemList.Title = input.Title
 	itemList.Description = input.Description
+	itemList.Items = input.Items
+	itemList.Version = input.Version
 
 	v := validator.New()
 
@@ -190,8 +193,10 @@ func (app *application) partiallyUpdateItemListHandler(w http.ResponseWriter, r 
 	}
 
 	var input struct {
-		Title       *string `json:"title"`
-		Description *string `json:"description"`
+		Title       *string  `json:"title"`
+		Description *string  `json:"description"`
+		Items       []string `json:"items"`
+		Version     *int32   `json:"version"`
 	}
 
 	err = app.readJSON(w, r, &input)
@@ -208,6 +213,14 @@ func (app *application) partiallyUpdateItemListHandler(w http.ResponseWriter, r 
 		itemList.Description = *input.Description
 	}
 
+	if input.Items != nil {
+		itemList.Items = input.Items
+	}
+
+	if input.Version != nil {
+		itemList.Version = *input.Version
+	}
+
 	v := validator.New()
 
 	if data.ValidateItemList(v, itemList); !v.Valid() {
@@ -217,7 +230,13 @@ func (app *application) partiallyUpdateItemListHandler(w http.ResponseWriter, r 
 
 	err = app.models.ItemList.Update(itemList)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+
 		return
 	}
 

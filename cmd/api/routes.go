@@ -28,15 +28,5 @@ func (app *application) routes() *chi.Mux {
 		r.Get("/", app.dummyHandler)
 	})
 
-	// v1 items routes
-	router.Route("/api/v1/itemsLists/{itemListId}/items", func(r chi.Router) {
-		r.Get("/{itemId}", app.dummyHandler)
-		r.Get("/", app.dummyHandler)
-		r.Post("/", app.dummyHandler)
-		r.Delete("/", app.dummyHandler)
-		r.Put("/", app.dummyHandler)
-		r.Patch("/", app.dummyHandler)
-	})
-
 	return router
 }
