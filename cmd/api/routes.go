@@ -23,9 +23,9 @@ func (app *application) routes() *chi.Mux {
 		r.Get("/{itemListId}", app.showItemListHandler)
 		r.Put("/{itemListId}", app.updateItemListHandler)
 		r.Delete("/{itemListId}", app.deleteItemListHandler)
+		r.Patch("/{itemListId}", app.partiallyUpdateItemListHandler)
 		r.Post("/", app.createItemListHandler)
 		r.Get("/", app.dummyHandler)
-		r.Patch("/", app.dummyHandler)
 	})
 
 	// v1 items routes
