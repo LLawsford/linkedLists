@@ -1,3 +1,4 @@
+// TODO: currently patch and put request here has some overlapping logic - could be limited to only one request type
 package main
 
 import (
@@ -20,7 +21,6 @@ func (app *application) createItemListHandler(w http.ResponseWriter, r *http.Req
 
 	err := app.readJSON(w, r, &input)
 	if err != nil {
-		fmt.Print("fucked up")
 		app.badRequestResponse(w, r, err)
 		return
 	}
@@ -39,7 +39,6 @@ func (app *application) createItemListHandler(w http.ResponseWriter, r *http.Req
 
 	err = app.models.ItemList.Insert(itemList)
 	if err != nil {
-		fmt.Print("fucked up 2")
 		app.serverErrorResponse(w, r, err)
 		return
 	}
@@ -49,7 +48,6 @@ func (app *application) createItemListHandler(w http.ResponseWriter, r *http.Req
 
 	err = app.writeJSON(w, http.StatusCreated, envelope{"itemList": itemList}, headers)
 	if err != nil {
-		fmt.Print("fucked up 3")
 		app.serverErrorResponse(w, r, err)
 	}
 }
@@ -124,8 +122,21 @@ func (app *application) updateItemListHandler(w http.ResponseWriter, r *http.Req
 
 	err = app.models.ItemList.Update(itemList)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+
 		return
+	}
+
+	if r.Header.Get("X-Expected-Version") != "" {
+		if strconv.FormatInt(int64(itemList.Version), 32) != r.Header.Get("X-Expected-Version") {
+			app.editConflictResponse(w, r)
+			return
+		}
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"itemList": itemList}, nil)
@@ -154,6 +165,70 @@ func (app *application) deleteItemListHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"message": "item list successfully deleted"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) partiallyUpdateItemListHandler(w http.ResponseWriter, r *http.Request) {
+	itemListId, err := strconv.ParseInt(chi.URLParam(r, "itemListId"), 10, 64)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	itemList, err := app.models.ItemList.Get(itemListId)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+
+		return
+	}
+
+	var input struct {
+		Title       *string `json:"title"`
+		Description *string `json:"description"`
+	}
+
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if input.Title != nil {
+		itemList.Title = *input.Title
+	}
+
+	if input.Description != nil {
+		itemList.Description = *input.Description
+	}
+
+	v := validator.New()
+
+	if data.ValidateItemList(v, itemList); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.ItemList.Update(itemList)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	if r.Header.Get("X-Expected-Version") != "" {
+		if strconv.FormatInt(int64(itemList.Version), 32) != r.Header.Get("X-Expected-Version") {
+			app.editConflictResponse(w, r)
+			return
+		}
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"itemList": itemList}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}

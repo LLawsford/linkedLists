@@ -13,6 +13,7 @@ type ItemList struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
+	Version     int32     `json:"version"`
 }
 
 func ValidateItemList(v *validator.Validator, itemList *ItemList) {
@@ -31,7 +32,7 @@ func (il ItemListModel) Insert(itemList *ItemList) error {
 	query := `
 		INSERT INTO item_lists (title, description)
 		VALUES ($1, $2)
-		RETURNING id, created_at
+		RETURNING id, created_at, version
 	`
 	args := []any{itemList.Title, itemList.Description}
 
@@ -73,18 +74,29 @@ func (il ItemListModel) Get(id int64) (*ItemList, error) {
 func (il ItemListModel) Update(itemList *ItemList) error {
 	query := `
 		UPDATE item_lists
-		SET title = $1, description = $2
-		WHERE id = $3
-		RETURNING id
+		SET title = $1, description = $2, version = version + 1
+		WHERE id = $3 AND version = $6
+		RETURNING version
 	`
 
 	args := []any{
 		itemList.Title,
 		itemList.Description,
 		itemList.ID,
+		itemList.Version,
 	}
 
-	return il.DB.QueryRow(query, args...).Scan(&itemList.ID)
+	err := il.DB.QueryRow(query, args...).Scan(&itemList.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (il ItemListModel) Delete(id int64) error {
